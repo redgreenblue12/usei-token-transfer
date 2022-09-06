@@ -13,6 +13,9 @@ To test, simply run `cargo test` (cargo version was 1.63.0 when writing)
   - `GetOwner` [here](https://github.com/redgreenblue12/usei-token-transfer/blob/46fd42edfcbf2ba75852751ca1261b0132d1248b/src/contract.rs#L222)
 - you should support an execute message where an account can send coins to the contract and specify two accounts that can withdraw the coins (for simplicity, split coins evenly across the two destination accounts)
   - `SendCoins` [here](https://github.com/redgreenblue12/usei-token-transfer/blob/46fd42edfcbf2ba75852751ca1261b0132d1248b/src/contract.rs#L72)
+  - Note that some interesting open questions that were not addressed would be:
+    - Can a user specify a destination address as their own sender address?
+    - Can a user specify both of the destination addresses to be the same?
 - you should store the withdrawable coins for every account who has non-zero coins in the contract
   - Handle new account [here](https://github.com/redgreenblue12/usei-token-transfer/blob/46fd42edfcbf2ba75852751ca1261b0132d1248b/src/contract.rs#L144)
   - (I didn't remove the account key when the user withdraws all their balance since I didn't feel it was necessary from a gas perspective CMIIW, but it should be easily possible.)
