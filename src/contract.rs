@@ -84,11 +84,14 @@ fn execute_send_coins(
     dest_addr1: String,
     dest_addr2: String,
 ) -> Result<Response, ContractError> {
+    let config_data = config_read(deps.storage).load()?;
     let valid_dest_addr1 = deps.api.addr_validate(&dest_addr1)?;
     let valid_dest_addr2 = deps.api.addr_validate(&dest_addr2)?;
+
+    // Get the coins that the user sent in this transaction.
     let total_coin_quantity = get_coin_quantity_sent_in_message(info);
 
-    let config_data = config_read(deps.storage).load()?;
+    // Deduct the flat and/or percent fee for the owner from the sent coins.
     let owner_fee = get_owner_fee(&config_data, total_coin_quantity)?;
     let owner_address = config_data.owner;
     if owner_fee > total_coin_quantity {
@@ -97,8 +100,10 @@ fn execute_send_coins(
         });
     }
 
+    // From the remaining coin balance, distribute the coins between the two
+    // destination recipients.
     let coin_quantity_minus_owner_fee = total_coin_quantity - owner_fee;
-    // Note that because of how this rounds down, there is the possibility of losing
+    // NOTE: Because of how this rounds down, there is the possibility of losing
     // the odd coin out. This could be optimized in the future, although right now
     // I assume it's probably not worth it, given that it's the smallest unit of
     // the particular token here.
@@ -120,6 +125,7 @@ fn execute_send_coins(
 fn get_owner_fee(config_data: &Config, coin_quantity: u128) -> Result<u128, StdError> {
     let percent_fee = config_data.fee.percent_fee;
     let flat_fee = config_data.fee.flat_fee;
+    // Divide the flat fee by 5 zeroes, since it's to represent a precision of up to 0.01%.
     let owner_fee = coin_quantity * percent_fee / 10000 + flat_fee;
     Ok(owner_fee)
 }
@@ -179,15 +185,20 @@ fn decrease_coins_at_address(
     resolver.update(key, |account_balance: Option<AccountBalance>| {
         if let Some(mut account_balance) = account_balance {
             if account_balance.balance >= coin_quantity {
+                // Decrease the user balance if their balance exists and
+                // their current balance is higher than the amount to decrease.
                 account_balance.balance = account_balance.balance - coin_quantity;
                 Ok::<AccountBalance, ContractError>(account_balance)
             } else {
+                // Raise an error if the user balance would otherwise go negative.
                 Err(ContractError::InsufficientFunds {
                     withdraw_quantity: coin_quantity,
                     balance: account_balance.balance,
                 })
             }
         } else {
+            // Raise an error since a user without a balance would definitely go
+            // negative from any non-zero amount to decrease.
             Err(ContractError::InsufficientFunds {
                 withdraw_quantity: coin_quantity,
                 balance: 0,
@@ -196,6 +207,7 @@ fn decrease_coins_at_address(
     })
 }
 
+// Extract the configured coin amount from the user's transaction.
 fn get_coin_quantity_sent_in_message(info: MessageInfo) -> u128 {
     let coins_sent = info.funds.iter().find(|coin| coin.denom == COIN_DENOM);
     match coins_sent {
