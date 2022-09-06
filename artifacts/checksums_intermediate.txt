@@ -1,0 +1,1 @@
+a59efe312eefd9879dc9befcb0d09620c7ad9b51421e0ebcd5ae61aac8083742  ./target/wasm32-unknown-unknown/release/usei_transfer_tokens.wasm
