@@ -10,13 +10,18 @@ pub struct InstantiateMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg {
-    SendCoins { addr1: String, addr2: String },
+    SendCoins {
+        dest_addr1: String,
+        dest_addr2: String,
+    },
+    // WithdrawCoins {quantity: u128},
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     GetOwner {},
+    GetAccountBalance { address: String },
     Config {},
 }
 
@@ -24,6 +29,13 @@ pub enum QueryMsg {
 #[serde(rename_all = "snake_case")]
 pub struct GetOwnerResponse {
     pub owner: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct GetAccountBalanceResponse {
+    pub address: String,
+    pub balance: u128,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
