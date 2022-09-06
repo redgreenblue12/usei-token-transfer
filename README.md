@@ -22,3 +22,5 @@ To test, simply run `cargo test` (cargo version was 1.63.0 when writing)
   - `GetWithdrawableCoinQuantity` [here](https://github.com/redgreenblue12/usei-token-transfer/blob/46fd42edfcbf2ba75852751ca1261b0132d1248b/src/contract.rs#L224)
 - you should write unit tests for all of these scenarios (we should be able to run cargo test and all of the unit tests should pass)
   - Unit tests starting [here](https://github.com/redgreenblue12/usei-token-transfer/blob/46fd42edfcbf2ba75852751ca1261b0132d1248b/src/tests.rs#L84)
+- Implement a fee structure for the transfer contract, where each send incurs fees that are collectable by the contract owner
+  - Supported setting fees during instantiation, and they'll go to the owner's address balance [here](https://github.com/redgreenblue12/usei-token-transfer/blob/d7bc996868bf8871edd5cd7875a2d92b5c3dd70f/src/contract.rs#L55)
