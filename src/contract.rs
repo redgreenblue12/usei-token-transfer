@@ -10,7 +10,7 @@ use crate::error::ContractError;
 use crate::msg::{
     ExecuteMsg, GetOwnerResponse, GetWithdrawableCoinQuantityResponse, InstantiateMsg, QueryMsg,
 };
-use crate::state::{config, config_read, resolver, resolver_read, AccountBalance, Config};
+use crate::state::{config, config_read, resolver, resolver_read, AccountBalance, Config, Fee};
 
 pub static COIN_DENOM: &str = "usei";
 
@@ -28,14 +28,35 @@ pub fn instantiate(
 ) -> Result<Response, ContractError> {
     // Get the owner either from the message that the creator instantiates with, if they
     // specify an owner.
-    // Alternatively, set the owner as the creator.
+    // Otherwise, set the owner as the creator.
     let owner: Result<Addr, StdError> = match msg.owner {
         Some(explicit_owner) => Ok(deps.api.addr_validate(&explicit_owner)?),
         None => Ok(info.sender),
     };
 
+    // Don't set contract fees if the creator doesn't specify them.
+    let flat_fee = match msg.flat_fee {
+        Some(flat_fee) => flat_fee,
+        None => 0,
+    };
+    let percent_fee = match msg.percent_fee {
+        Some(percent_fee) => percent_fee,
+        None => 0,
+    };
+    // Percent fee must be between 0 - 9999 inclusive if set,
+    // to represent a percentage ranging 0% - 99.99%.
+    if percent_fee > 9999 {
+        return Err(ContractError::PercentFeeTooLarge { percent_fee });
+    }
+
     // Instantiate the contract.
-    let config_state: Config = Config { owner: owner? };
+    let config_state: Config = Config {
+        owner: owner?,
+        fee: Fee {
+            flat_fee,
+            percent_fee,
+        },
+    };
     config(deps.storage).save(&config_state)?;
     Ok(Response::default())
 }
@@ -66,7 +87,22 @@ fn execute_send_coins(
     let valid_dest_addr1 = deps.api.addr_validate(&dest_addr1)?;
     let valid_dest_addr2 = deps.api.addr_validate(&dest_addr2)?;
     let total_coin_quantity = get_coin_quantity_sent_in_message(info);
-    let split_coin_quantity = total_coin_quantity / 2;
+
+    let config_data = config_read(deps.storage).load()?;
+    let owner_fee = get_owner_fee(&config_data, total_coin_quantity)?;
+    let owner_address = config_data.owner;
+    if owner_fee > total_coin_quantity {
+        return Err(ContractError::CannotCoverFee {
+            send_quantity: total_coin_quantity,
+        });
+    }
+
+    let coin_quantity_minus_owner_fee = total_coin_quantity - owner_fee;
+    // Note that because of how this rounds down, there is the possibility of losing
+    // the odd coin out. This could be optimized in the future, although right now
+    // I assume it's probably not worth it, given that it's the smallest unit of
+    // the particular token here.
+    let split_coin_quantity = coin_quantity_minus_owner_fee / 2;
     increase_coins_at_address(
         &mut resolver(deps.storage),
         valid_dest_addr1,
@@ -77,7 +113,15 @@ fn execute_send_coins(
         valid_dest_addr2,
         split_coin_quantity,
     )?;
+    increase_coins_at_address(&mut resolver(deps.storage), owner_address, owner_fee)?;
     Ok(Response::default())
+}
+
+fn get_owner_fee(config_data: &Config, coin_quantity: u128) -> Result<u128, StdError> {
+    let percent_fee = config_data.fee.percent_fee;
+    let flat_fee = config_data.fee.flat_fee;
+    let owner_fee = coin_quantity * percent_fee / 10000 + flat_fee;
+    Ok(owner_fee)
 }
 
 fn increase_coins_at_address(

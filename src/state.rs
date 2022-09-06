@@ -1,4 +1,7 @@
-use cosmwasm_storage::{singleton, singleton_read, ReadonlySingleton, Singleton, Bucket, ReadonlyBucket, bucket, bucket_read};
+use cosmwasm_storage::{
+    bucket, bucket_read, singleton, singleton_read, Bucket, ReadonlyBucket, ReadonlySingleton,
+    Singleton,
+};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -10,6 +13,13 @@ pub static ACCOUNT_BALANCE_KEY: &[u8] = b"accountbalance";
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Config {
     pub owner: Addr,
+    pub fee: Fee,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct Fee {
+    pub flat_fee: u128,
+    pub percent_fee: u128,
 }
 
 pub fn config(storage: &mut dyn Storage) -> Singleton<Config> {

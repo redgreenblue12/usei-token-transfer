@@ -8,7 +8,7 @@ mod tests {
     use crate::msg::{
         ExecuteMsg, GetOwnerResponse, GetWithdrawableCoinQuantityResponse, InstantiateMsg, QueryMsg,
     };
-    use crate::state::{resolver, AccountBalance, Config};
+    use crate::state::{resolver, AccountBalance, Config, Fee};
     use crate::ContractError;
 
     fn assert_config_state(deps: Deps, expected: Config) {
@@ -45,7 +45,23 @@ mod tests {
     }
 
     fn mock_init_no_owner_specified(deps: DepsMut) {
-        let msg = InstantiateMsg { owner: None };
+        let msg = InstantiateMsg {
+            owner: None,
+            flat_fee: None,
+            percent_fee: None,
+        };
+
+        let info = mock_info("creator", &coins(2, "token"));
+        let _res = instantiate(deps, mock_env(), info, msg)
+            .expect("contract successfully handles InstantiateMsg");
+    }
+
+    fn mock_init_with_fees(deps: DepsMut, flat_fee: u128, percent_fee: u128) {
+        let msg = InstantiateMsg {
+            owner: None,
+            flat_fee: Some(flat_fee),
+            percent_fee: Some(percent_fee),
+        };
 
         let info = mock_info("creator", &coins(2, "token"));
         let _res = instantiate(deps, mock_env(), info, msg)
@@ -53,7 +69,11 @@ mod tests {
     }
 
     fn mock_init_owner_specified(deps: DepsMut, owner: String) {
-        let msg = InstantiateMsg { owner: Some(owner) };
+        let msg = InstantiateMsg {
+            owner: Some(owner),
+            flat_fee: None,
+            percent_fee: None,
+        };
 
         let info = mock_info("creator", &coins(2, "token"));
         let _res = instantiate(deps, mock_env(), info, msg)
@@ -68,6 +88,10 @@ mod tests {
             deps.as_ref(),
             Config {
                 owner: Addr::unchecked("creator"),
+                fee: Fee {
+                    flat_fee: 0,
+                    percent_fee: 0,
+                },
             },
         )
     }
@@ -80,8 +104,30 @@ mod tests {
             deps.as_ref(),
             Config {
                 owner: Addr::unchecked("someone"),
+                fee: Fee {
+                    flat_fee: 0,
+                    percent_fee: 0,
+                },
             },
         )
+    }
+
+    #[test]
+    fn create_contract_with_bad_percent() {
+        let mut deps = mock_dependencies();
+
+        let msg = InstantiateMsg {
+            owner: None,
+            flat_fee: Some(0),
+            percent_fee: Some(10000000),
+        };
+
+        let info = mock_info("creator", &coins(2, "token"));
+        let res = instantiate(deps.as_mut(), mock_env(), info, msg);
+        match res.unwrap_err() {
+            ContractError::PercentFeeTooLarge { .. } => {}
+            e => panic!("unexpected error: {:?}", e),
+        }
     }
 
     #[test]
@@ -129,6 +175,50 @@ mod tests {
         assert_account_balance(deps.as_ref(), "alice", 150);
         assert_account_balance(deps.as_ref(), "bob", 150);
         assert_account_balance(deps.as_ref(), "joe", 0);
+    }
+
+    #[test]
+    fn send_coins_with_flat_fees() {
+        let mut deps = mock_dependencies();
+        mock_init_with_fees(deps.as_mut(), 20, 0);
+
+        let info = mock_info("creator", &[coin(300, "usei")]);
+        let msg = ExecuteMsg::SendCoins {
+            dest_addr1: String::from("alice"),
+            dest_addr2: String::from("bob"),
+        };
+
+        let _res = execute(deps.as_mut(), mock_env(), info, msg)
+            .expect("contract successfully sent the coins");
+
+        // 300 coins were sent, minus the flat fee (20), so Alice and Bob should have
+        // 140 coins each.
+        assert_account_balance(deps.as_ref(), "alice", 140);
+        assert_account_balance(deps.as_ref(), "bob", 140);
+        // The contract owner, 'creator', should have 20 coins now.
+        assert_account_balance(deps.as_ref(), "creator", 20);
+    }
+
+    #[test]
+    fn send_coins_with_percent_fees() {
+        let mut deps = mock_dependencies();
+        mock_init_with_fees(deps.as_mut(), 0, 5000);
+
+        let info = mock_info("creator", &[coin(300, "usei")]);
+        let msg = ExecuteMsg::SendCoins {
+            dest_addr1: String::from("alice"),
+            dest_addr2: String::from("bob"),
+        };
+
+        let _res = execute(deps.as_mut(), mock_env(), info, msg)
+            .expect("contract successfully sent the coins");
+
+        // 300 coins were sent, minus the percent fee (50%), so Alice and Bob should have
+        // 75 coins each.
+        assert_account_balance(deps.as_ref(), "alice", 75);
+        assert_account_balance(deps.as_ref(), "bob", 75);
+        // The contract owner, 'creator', should have 150 coins now.
+        assert_account_balance(deps.as_ref(), "creator", 150);
     }
 
     #[test]
