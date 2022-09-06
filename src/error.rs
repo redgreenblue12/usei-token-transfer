@@ -6,9 +6,6 @@ pub enum ContractError {
     #[error("{0}")]
     Std(#[from] StdError),
 
-    #[error("Custom Error val: {val:?}")]
-    CustomError { val: String },
-
     #[error("Withdrawal quantity {withdraw_quantity:?} exceeds balance {balance:?}")]
     InsufficientFunds {
         withdraw_quantity: u128,
