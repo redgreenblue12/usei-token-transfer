@@ -14,14 +14,16 @@ pub enum ExecuteMsg {
         dest_addr1: String,
         dest_addr2: String,
     },
-    // WithdrawCoins {quantity: u128},
+    WithdrawCoins {
+        quantity: u128,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     GetOwner {},
-    GetAccountBalance { address: String },
+    GetWithdrawableCoinQuantity { address: String },
     Config {},
 }
 
@@ -33,7 +35,7 @@ pub struct GetOwnerResponse {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub struct GetAccountBalanceResponse {
+pub struct GetWithdrawableCoinQuantityResponse {
     pub address: String,
     pub balance: u128,
 }

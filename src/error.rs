@@ -8,4 +8,15 @@ pub enum ContractError {
 
     #[error("Custom Error val: {val:?}")]
     CustomError { val: String },
+
+    #[error("Withdrawal quantity {withdraw_quantity:?} exceeds balance {balance:?}")]
+    InsufficientFunds {
+        withdraw_quantity: u128,
+        balance: u128,
+    },
+
+    #[error("Can't withdraw no coins {withdraw_quantity:?}")]
+    EmptyWithdrawQuantity {
+        withdraw_quantity: u128,
+    },
 }
